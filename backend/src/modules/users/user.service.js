@@ -43,23 +43,25 @@ const verifyRefreshToken = (token) => {
 };
 
 const register = async (userData) => {
-  const { email, password, role, firstName, lastName, phone } = userData;
+  const { email, password, role, firstName, lastName, phone, address } = userData;
 
   const existingUser = await userSql.findUserByEmail(email);
   if (existingUser) {
     throw new ApiError(400, "Email already registered");
   }
 
-  const validRoles = ["admin", "teacher", "parent"];
+  const validRoles = ["admin", "teacher", "parent", "student"];
   if (!validRoles.includes(role)) {
     throw new ApiError(400, "Invalid role");
   }
 
-  if (!password || password.length < 6) {
-    throw new ApiError(400, "Password must be at least 6 characters");
+  let passwordHash = null;
+  if (password && password.length > 0) {
+    if (password.length < 6) {
+      throw new ApiError(400, "Password must be at least 6 characters");
+    }
+    passwordHash = await hashPassword(password);
   }
-
-  const passwordHash = await hashPassword(password);
 
   const user = await userSql.createUser({
     email,
@@ -68,10 +70,29 @@ const register = async (userData) => {
     firstName,
     lastName,
     phone,
+    address,
   });
 
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
+  if (["admin", "teacher", "parent"].includes(role)) {
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        phone: user.phone,
+        address: user.address,
+        isActive: user.is_active,
+        createdAt: user.created_at,
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
 
   return {
     user: {
@@ -81,11 +102,10 @@ const register = async (userData) => {
       firstName: user.first_name,
       lastName: user.last_name,
       phone: user.phone,
+      address: user.address,
       isActive: user.is_active,
       createdAt: user.created_at,
     },
-    accessToken,
-    refreshToken,
   };
 };
 
@@ -114,6 +134,10 @@ const login = async (loginData) => {
       failureReason: "Account is deactivated",
     });
     throw new ApiError(403, "Account is deactivated. Contact administrator.");
+  }
+
+  if (user.role === "student") {
+    throw new ApiError(403, "Student accounts cannot log in");
   }
 
   const isPasswordValid = await comparePassword(password, user.password_hash);
@@ -160,6 +184,7 @@ const login = async (loginData) => {
       firstName: user.first_name,
       lastName: user.last_name,
       phone: user.phone,
+      address: user.address,
       lastLogin: user.last_login,
     },
     accessToken,
@@ -174,7 +199,7 @@ const logout = async (refreshToken) => {
   return { message: "Logged out successfully" };
 };
 
-const refreshToken = async (refreshToken) => {
+const refreshTokenFn = async (refreshToken) => {
   if (!refreshToken) {
     throw new ApiError(401, "Refresh token is required");
   }
@@ -296,6 +321,13 @@ const getAllUsers = async (page = 1, limit = 10, role = null) => {
   return userSql.getAllUsers(page, limit, role);
 };
 
+const searchUsers = async (searchTerm, role = null, page = 1, limit = 10) => {
+  if (!searchTerm || searchTerm.trim().length === 0) {
+    throw new ApiError(400, "Search term is required");
+  }
+  return userSql.searchUsers(searchTerm.trim(), role, page, limit);
+};
+
 const updateUser = async (id, updates) => {
   const user = await userSql.findUserById(id);
   if (!user) {
@@ -316,20 +348,182 @@ const getLoginHistory = async (userId, limit = 10) => {
   return userSql.getLoginHistory(userId, limit);
 };
 
+const linkStudentToParent = async (linkData) => {
+  const { parentId, studentId, relationship, isPrimary, createdBy } = linkData;
+
+  const parent = await userSql.findUserById(parentId);
+  if (!parent || parent.role !== "parent") {
+    throw new ApiError(400, "Invalid parent user");
+  }
+
+  const student = await userSql.findUserById(studentId);
+  if (!student || student.role !== "student") {
+    throw new ApiError(400, "Invalid student user");
+  }
+
+  const existingLink = await userSql.isParentOfStudent(parentId, studentId);
+  if (existingLink) {
+    throw new ApiError(400, "This student is already linked to this parent");
+  }
+
+  return userSql.linkStudentToParent({
+    parentId,
+    studentId,
+    relationship,
+    isPrimary,
+    createdBy,
+  });
+};
+
+const unlinkStudentFromParent = async (parentId, studentId) => {
+  const existingLink = await userSql.isParentOfStudent(parentId, studentId);
+  if (!existingLink) {
+    throw new ApiError(400, "Link does not exist");
+  }
+
+  return userSql.unlinkStudentFromParent(parentId, studentId);
+};
+
+const getChildrenByParent = async (parentId) => {
+  const parent = await userSql.findUserById(parentId);
+  if (!parent || parent.role !== "parent") {
+    throw new ApiError(400, "Invalid parent user");
+  }
+
+  return userSql.getChildrenByParent(parentId);
+};
+
+const getParentsByStudent = async (studentId) => {
+  const student = await userSql.findUserById(studentId);
+  if (!student || student.role !== "student") {
+    throw new ApiError(400, "Invalid student user");
+  }
+
+  return userSql.getParentsByStudent(studentId);
+};
+
+const createSubject = async (subjectData) => {
+  const { name, code, description } = subjectData;
+
+  if (!name || !code) {
+    throw new ApiError(400, "Name and code are required");
+  }
+
+  const existingCode = await userSql.subjectCodeExists(code);
+  if (existingCode) {
+    throw new ApiError(400, "Subject code already exists");
+  }
+
+  return userSql.createSubject({ name, code, description });
+};
+
+const getAllSubjects = async (activeOnly = true) => {
+  return userSql.getAllSubjects(activeOnly);
+};
+
+const getSubjectById = async (id) => {
+  const subject = await userSql.getSubjectById(id);
+  if (!subject) {
+    throw new ApiError(404, "Subject not found");
+  }
+  return subject;
+};
+
+const updateSubject = async (id, updates) => {
+  const subject = await userSql.getSubjectById(id);
+  if (!subject) {
+    throw new ApiError(404, "Subject not found");
+  }
+
+  if (updates.code && updates.code !== subject.code) {
+    const existingCode = await userSql.subjectCodeExists(updates.code, id);
+    if (existingCode) {
+      throw new ApiError(400, "Subject code already exists");
+    }
+  }
+
+  return userSql.updateSubject(id, updates);
+};
+
+const assignSubjectToTeacher = async (teacherId, subjectId, isPrimary = true) => {
+
+  const teacher = await userSql.findUserById(teacherId);
+  if (!teacher || teacher.role !== "teacher") {
+    throw new ApiError(400, "Invalid teacher user");
+  }
+
+  const subject = await userSql.getSubjectById(subjectId);
+  if (!subject) {
+    throw new ApiError(400, "Invalid subject");
+  }
+
+  const existingAssignment = await userSql.isTeacherOfSubject(teacherId, subjectId);
+  if (existingAssignment) {
+    throw new ApiError(400, "Teacher is already assigned to this subject");
+  }
+
+  return userSql.assignSubjectToTeacher(teacherId, subjectId, isPrimary);
+};
+
+const removeSubjectFromTeacher = async (teacherId, subjectId) => {
+  const existingAssignment = await userSql.isTeacherOfSubject(teacherId, subjectId);
+  if (!existingAssignment) {
+    throw new ApiError(400, "Teacher is not assigned to this subject");
+  }
+
+  return userSql.removeSubjectFromTeacher(teacherId, subjectId);
+};
+
+const getTeacherSubjects = async (teacherId) => {
+  const teacher = await userSql.findUserById(teacherId);
+  if (!teacher || teacher.role !== "teacher") {
+    throw new ApiError(400, "Invalid teacher user");
+  }
+
+  return userSql.getTeacherSubjects(teacherId);
+};
+
+const getSubjectTeachers = async (subjectId) => {
+  const subject = await userSql.getSubjectById(subjectId);
+  if (!subject) {
+    throw new ApiError(404, "Subject not found");
+  }
+
+  return userSql.getSubjectTeachers(subjectId);
+};
+
 module.exports = {
+
   register,
   login,
   logout,
-  refreshToken,
+  refreshToken: refreshTokenFn,
   requestPasswordReset,
   resetPassword,
   changePassword,
+
   getUserById,
   getAllUsers,
+  searchUsers,
   updateUser,
   deactivateUser,
   getLoginHistory,
+
+  linkStudentToParent,
+  unlinkStudentFromParent,
+  getChildrenByParent,
+  getParentsByStudent,
+
+  createSubject,
+  getAllSubjects,
+  getSubjectById,
+  updateSubject,
+
+  assignSubjectToTeacher,
+  removeSubjectFromTeacher,
+  getTeacherSubjects,
+  getSubjectTeachers,
+
   hashPassword,
   comparePassword,
 };
-

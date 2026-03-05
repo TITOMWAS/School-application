@@ -2,7 +2,7 @@ const userService = require("./user.service");
 
 const register = async (req, res, next) => {
   try {
-    const { email, password, role, firstName, lastName, phone } = req.body;
+    const { email, password, role, firstName, lastName, phone, address } = req.body;
 
     const result = await userService.register({
       email,
@@ -11,6 +11,7 @@ const register = async (req, res, next) => {
       firstName,
       lastName,
       phone,
+      address,
     });
 
     res.status(201).json({
@@ -137,6 +138,8 @@ const getCurrentUser = async (req, res, next) => {
         firstName: user.first_name,
         lastName: user.last_name,
         phone: user.phone,
+        address: user.address,
+        profilePicture: user.profile_picture,
         isActive: user.is_active,
         lastLogin: user.last_login,
         createdAt: user.created_at,
@@ -166,6 +169,33 @@ const getAllUsers = async (req, res, next) => {
   }
 };
 
+const searchUsers = async (req, res, next) => {
+  try {
+    const { search, role, page = 1, limit = 10 } = req.query;
+
+    if (!search) {
+      return res.status(400).json({
+        success: false,
+        message: "Search term is required",
+      });
+    }
+
+    const result = await userService.searchUsers(
+      search,
+      role,
+      parseInt(page),
+      parseInt(limit)
+    );
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getUserById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -180,6 +210,8 @@ const getUserById = async (req, res, next) => {
         firstName: user.first_name,
         lastName: user.last_name,
         phone: user.phone,
+        address: user.address,
+        profilePicture: user.profile_picture,
         isActive: user.is_active,
         lastLogin: user.last_login,
         createdAt: user.created_at,
@@ -193,12 +225,14 @@ const getUserById = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, phone, isActive } = req.body;
+    const { firstName, lastName, phone, address, profilePicture, isActive } = req.body;
 
     const user = await userService.updateUser(parseInt(id), {
       firstName,
       lastName,
       phone,
+      address,
+      profilePicture,
       isActive,
     });
 
@@ -243,6 +277,216 @@ const getLoginHistory = async (req, res, next) => {
   }
 };
 
+const linkStudentToParent = async (req, res, next) => {
+  try {
+    const { parentId, studentId, relationship, isPrimary } = req.body;
+    const createdBy = req.user.id;
+
+    const link = await userService.linkStudentToParent({
+      parentId: parseInt(parentId),
+      studentId: parseInt(studentId),
+      relationship,
+      isPrimary,
+      createdBy,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Student linked to parent successfully",
+      data: link,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unlinkStudentFromParent = async (req, res, next) => {
+  try {
+    const { parentId, studentId } = req.params;
+
+    await userService.unlinkStudentFromParent(
+      parseInt(parentId),
+      parseInt(studentId)
+    );
+
+    res.json({
+      success: true,
+      message: "Student unlinked from parent successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getChildrenByParent = async (req, res, next) => {
+  try {
+    const { parentId } = req.params;
+
+    const children = await userService.getChildrenByParent(parseInt(parentId));
+
+    res.json({
+      success: true,
+      data: children,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getParentsByStudent = async (req, res, next) => {
+  try {
+    const { studentId } = req.params;
+
+    const parents = await userService.getParentsByStudent(parseInt(studentId));
+
+    res.json({
+      success: true,
+      data: parents,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createSubject = async (req, res, next) => {
+  try {
+    const { name, code, description } = req.body;
+
+    const subject = await userService.createSubject({
+      name,
+      code,
+      description,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Subject created successfully",
+      data: subject,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllSubjects = async (req, res, next) => {
+  try {
+    const { activeOnly = true } = req.query;
+
+    const subjects = await userService.getAllSubjects(activeOnly !== "false");
+
+    res.json({
+      success: true,
+      data: subjects,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSubjectById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const subject = await userService.getSubjectById(parseInt(id));
+
+    res.json({
+      success: true,
+      data: subject,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateSubject = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, description, isActive } = req.body;
+
+    const subject = await userService.updateSubject(parseInt(id), {
+      name,
+      description,
+      isActive,
+    });
+
+    res.json({
+      success: true,
+      message: "Subject updated successfully",
+      data: subject,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignSubjectToTeacher = async (req, res, next) => {
+  try {
+    const { teacherId, subjectId, isPrimary } = req.body;
+
+    const assignment = await userService.assignSubjectToTeacher(
+      parseInt(teacherId),
+      parseInt(subjectId),
+      isPrimary
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Subject assigned to teacher successfully",
+      data: assignment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const removeSubjectFromTeacher = async (req, res, next) => {
+  try {
+    const { teacherId, subjectId } = req.params;
+
+    await userService.removeSubjectFromTeacher(
+      parseInt(teacherId),
+      parseInt(subjectId)
+    );
+
+    res.json({
+      success: true,
+      message: "Subject removed from teacher successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTeacherSubjects = async (req, res, next) => {
+  try {
+    const { teacherId } = req.params;
+
+    const subjects = await userService.getTeacherSubjects(parseInt(teacherId));
+
+    res.json({
+      success: true,
+      data: subjects,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSubjectTeachers = async (req, res, next) => {
+  try {
+    const { subjectId } = req.params;
+
+    const teachers = await userService.getSubjectTeachers(parseInt(subjectId));
+
+    res.json({
+      success: true,
+      data: teachers,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -253,9 +497,22 @@ module.exports = {
   changePassword,
   getCurrentUser,
   getAllUsers,
+  searchUsers,
   getUserById,
   updateUser,
   deactivateUser,
   getLoginHistory,
+  linkStudentToParent,
+  unlinkStudentFromParent,
+  getChildrenByParent,
+  getParentsByStudent,
+  createSubject,
+  getAllSubjects,
+  getSubjectById,
+  updateSubject,
+  assignSubjectToTeacher,
+  removeSubjectFromTeacher,
+  getTeacherSubjects,
+  getSubjectTeachers,
 };
 
