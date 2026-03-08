@@ -1,4 +1,6 @@
 const paymentsService = require("./payments.service");
+const crypto = require('crypto');
+const env = require('../../config/env');
 
 
 const createFeeStructure = async (req, res, next) => {
@@ -397,6 +399,18 @@ const verifyPaystackPayment = async (req, res, next) => {
 
 const handlePaystackWebhook = async (req, res, next) => {
   try {
+    const signature = req.headers['x-paystack-signature'] || req.headers['X-Paystack-Signature'];
+    const payload = JSON.stringify(req.body || {});
+
+    if (!signature) {
+      return res.status(400).json({ success: false, message: 'Missing Paystack signature' });
+    }
+
+    const computed = crypto.createHmac('sha512', env.paystack.secretKey).update(payload).digest('hex');
+    if (computed !== signature) {
+      return res.status(401).json({ success: false, message: 'Invalid Paystack signature' });
+    }
+
     const result = await paymentsService.handlePaystackWebhook(req.body);
 
     res.json({
