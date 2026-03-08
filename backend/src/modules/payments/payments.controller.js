@@ -450,6 +450,21 @@ const chargeMobileMoney = async (req, res, next) => {
   }
 };
 
+const handlePaymentRedirect = async (req, res, next) => {
+  try {
+    const { reference } = req.query;
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference query param required' });
+    }
+
+    const payment = await paymentsService.verifyPaystackPayment(reference).catch(e => null);
+
+    return res.json({ success: true, message: 'Callback received', reference, payment });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   
   createFeeStructure,
@@ -483,5 +498,7 @@ module.exports = {
   handlePaystackWebhook,
   createPaystackPaymentLink,
   chargeMobileMoney,
+  getPaymentConfig,
+  handlePaymentRedirect,
 };
 

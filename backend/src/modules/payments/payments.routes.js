@@ -25,6 +25,7 @@ router.get("/student/:studentId/payments", authMiddleware.authenticate, payments
 
 
 router.post("/callback", paymentsController.handlePaymentCallback);
+router.get("/callback", paymentsController.handlePaymentRedirect);
 
 
 router.get("/reports/collection/:academicYearId", authMiddleware.authenticate, authMiddleware.authorize("admin"), paymentsController.getFeeCollectionReport);
