@@ -1,6 +1,4 @@
 const paymentsService = require("./payments.service");
-const crypto = require('crypto');
-const env = require('../../config/env');
 
 
 const createFeeStructure = async (req, res, next) => {
@@ -399,18 +397,6 @@ const verifyPaystackPayment = async (req, res, next) => {
 
 const handlePaystackWebhook = async (req, res, next) => {
   try {
-    const signature = req.headers['x-paystack-signature'] || req.headers['X-Paystack-Signature'];
-    const payload = JSON.stringify(req.body || {});
-
-    if (!signature) {
-      return res.status(400).json({ success: false, message: 'Missing Paystack signature' });
-    }
-
-    const computed = crypto.createHmac('sha512', env.paystack.secretKey).update(payload).digest('hex');
-    if (computed !== signature) {
-      return res.status(401).json({ success: false, message: 'Invalid Paystack signature' });
-    }
-
     const result = await paymentsService.handlePaystackWebhook(req.body);
 
     res.json({
@@ -464,37 +450,6 @@ const chargeMobileMoney = async (req, res, next) => {
   }
 };
 
-const handlePaymentRedirect = async (req, res, next) => {
-  try {
-    const { reference } = req.query;
-    if (!reference) {
-      return res.status(400).json({ success: false, message: 'Reference query param required' });
-    }
-
-    const payment = await paymentsService.verifyPaystackPayment(reference).catch(e => null);
-
-    return res.json({ success: true, message: 'Callback received', reference, payment });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getPaymentConfig = async (req, res, next) => {
-  try {
-    const envConfig = require('../../config/env');
-    res.json({
-      success: true,
-      data: {
-        publicKey: envConfig.paystack.publicKey,
-        callbackUrl: envConfig.paystack.callbackUrl,
-        isLive: envConfig.paystack.secretKey && envConfig.paystack.secretKey.startsWith && envConfig.paystack.secretKey.startsWith('sk_live_')
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 module.exports = {
   
   createFeeStructure,
@@ -528,7 +483,5 @@ module.exports = {
   handlePaystackWebhook,
   createPaystackPaymentLink,
   chargeMobileMoney,
-  getPaymentConfig,
-  handlePaymentRedirect,
 };
 

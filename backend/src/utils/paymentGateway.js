@@ -20,13 +20,18 @@ const initializePayment = async ({ email, amount, studentId, studentFeeId, callb
       amount: Math.round(amount * 100),
       email,
       reference: `SCH_${Date.now()}_${studentId}_${studentFeeId}`,
-      callback_url: callbackUrl || env.paystack.callbackUrl,
+      // Don't set callback_url - Paystack will show its own success page
       metadata: JSON.stringify({
         studentId,
         studentFeeId,
         type: 'school_fee'
       })
     };
+    
+    // Only add callback_url if explicitly provided
+    if (callbackUrl) {
+      transactionData.callback_url = callbackUrl;
+    }
     
     const response = await paystack.initializeTransaction(transactionData);
     

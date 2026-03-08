@@ -6,8 +6,7 @@ const email = argv.email || argv.e;
 const amount = parseFloat(argv.amount || argv.a);
 const studentId = argv.studentId || argv.s || 0;
 const studentFeeId = argv.studentFeeId || argv.f || 0;
-const callbackUrl = argv.callbackUrl || argv.c || process.env.PAYSTACK_CALLBACK_URL || 'http://localhost:5000/api/payments/callback';
-
+const callbackUrl = 'http://localhost:5173/payment-success.html'; 
 if (!email || !amount) {
   console.error('email and amount are required. Example: --email student@school.com --amount 50000');
   process.exit(1);
