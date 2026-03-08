@@ -479,6 +479,22 @@ const handlePaymentRedirect = async (req, res, next) => {
   }
 };
 
+const getPaymentConfig = async (req, res, next) => {
+  try {
+    const envConfig = require('../../config/env');
+    res.json({
+      success: true,
+      data: {
+        publicKey: envConfig.paystack.publicKey,
+        callbackUrl: envConfig.paystack.callbackUrl,
+        isLive: envConfig.paystack.secretKey && envConfig.paystack.secretKey.startsWith && envConfig.paystack.secretKey.startsWith('sk_live_')
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   
   createFeeStructure,
