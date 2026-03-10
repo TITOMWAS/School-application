@@ -20,13 +20,18 @@ const initializePayment = async ({ email, amount, studentId, studentFeeId, callb
       amount: Math.round(amount * 100),
       email,
       reference: `SCH_${Date.now()}_${studentId}_${studentFeeId}`,
-      callback_url: callbackUrl || env.paystack.callbackUrl,
-      metadata: {
+      // Don't set callback_url - Paystack will show its own success page
+      metadata: JSON.stringify({
         studentId,
         studentFeeId,
         type: 'school_fee'
-      }
+      })
     };
+    
+    // Only add callback_url if explicitly provided
+    if (callbackUrl) {
+      transactionData.callback_url = callbackUrl;
+    }
     
     const response = await paystack.initializeTransaction(transactionData);
     
@@ -105,28 +110,33 @@ const chargeMobileMoney = async ({ email, phoneNumber, amount, studentId, studen
 const verifyTransaction = async (reference) => {
   try {
     const paystack = getPaystackInstance();
-    const response = await paystack.verifyTransaction(reference);
-    
-    if (response.status && response.data.status === 'success') {
+    const response = await paystack.verifyTransaction({ reference });
+
+    const body = response.data || response.body || response;
+    const data = body && (body.data || body);
+
+    const status = response.status || (body && body.status) || (data && data.status);
+
+    if (status && data && data.status === 'success') {
       return {
         success: true,
         verified: true,
-        reference: response.data.reference,
-        amount: response.data.amount / 100,
-        currency: response.data.currency,
-        status: response.data.status,
+        reference: data.reference,
+        amount: data.amount / 100,
+        currency: data.currency,
+        status: data.status,
         customer: {
-          email: response.data.customer.email,
-          phone: response.data.customer.phone
+          email: data.customer && data.customer.email,
+          phone: data.customer && data.customer.phone
         },
-        metadata: response.data.metadata
+        metadata: data.metadata
       };
     }
-    
+
     return {
       success: true,
       verified: false,
-      status: response.data.status,
+      status: data && data.status,
       message: 'Transaction not successful'
     };
   } catch (error) {

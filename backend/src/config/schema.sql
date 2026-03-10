@@ -1,5 +1,3 @@
-
-
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -222,7 +220,6 @@ CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date);
 CREATE INDEX IF NOT EXISTS idx_attendance_subject_id ON attendance(subject_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_marked_by ON attendance(marked_by);
 
--- Grading & Assessment Tables (Module 8)
 CREATE TABLE IF NOT EXISTS grade_components (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -306,7 +303,6 @@ CREATE INDEX IF NOT EXISTS idx_report_cards_class_id ON report_cards(class_id);
 CREATE INDEX IF NOT EXISTS idx_report_cards_academic_year_id ON report_cards(academic_year_id);
 CREATE INDEX IF NOT EXISTS idx_report_cards_term_id ON report_cards(term_id);
 
--- Student Management Table (Module 9)
 CREATE TABLE IF NOT EXISTS student_records (
     id SERIAL PRIMARY KEY,
     student_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
@@ -329,7 +325,6 @@ CREATE TABLE IF NOT EXISTS student_records (
 CREATE INDEX IF NOT EXISTS idx_student_records_admission_number ON student_records(admission_number);
 CREATE INDEX IF NOT EXISTS idx_student_records_student_id ON student_records(student_id);
 
--- Payment & Finance Tables (Module 11)
 CREATE TABLE IF NOT EXISTS fee_structures (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -404,7 +399,6 @@ CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_i
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payments_payment_date ON payments(payment_date);
 
--- Notification Tables (Module 12)
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -438,7 +432,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 
--- Audit Logs Table (Module 14)
 CREATE TABLE IF NOT EXISTS audit_logs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -458,7 +451,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_type ON audit_logs(entity_type)
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_id ON audit_logs(entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
--- System Events Table (Module 15)
 CREATE TABLE IF NOT EXISTS system_events (
     id SERIAL PRIMARY KEY,
     event_type VARCHAR(50) NOT NULL,
